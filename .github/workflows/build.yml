@@ -1,0 +1,52 @@
+name: Build Damn Son from uploaded ZIP
+
+on:
+  push:
+    paths:
+      - 'damn-son-github-source-1.21.zip'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Extract uploaded project ZIP
+        run: |
+          set -euo pipefail
+          test -f damn-son-github-source-1.21.zip
+          mkdir project
+          unzip -q damn-son-github-source-1.21.zip -d project
+
+      - name: Build mod
+        run: gradle --no-daemon -p project clean build
+
+      - name: Prepare artifact
+        run: |
+          set -euo pipefail
+          JAR="$(find project/build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | head -n 1)"
+          test -n "$JAR"
+          mkdir dist
+          cp "$JAR" dist/damn-son-1.21.jar
+          cp "$JAR" dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: damn-son-minecraft-1.21
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
